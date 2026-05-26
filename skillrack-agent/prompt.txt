@@ -1,172 +1,98 @@
-# SkillRack Automation Agent - Instructions for AI
+# SkillRack Automation — AI Instructions
 
-## Overview
-You are an AI agent that autonomously solves SkillRack programming problems.
-You have a tool `skillrack.py` that handles browser automation (connect, navigate,
-CAPTCHA, paste, run, detect results). You use it as a component in your loop.
+You have access to a SkillRack automation toolbox in this directory. This file tells you how to use it to solve Python programming problems on SkillRack.
 
 ## Architecture
-- **skillrack.py** — your "hands": clicks, types, reads results (Python + Playwright)
-- **You (AI)** — your "brain": reads problems, writes code, iterates on failure
 
-## Before Starting
-- Chrome/Brave must be running with `--remote-debugging-port=9222`
-- User must be logged into SkillRack in that browser
-- Run `pip install -r requirements.txt && playwright install chromium`
+- `skillrack.py` — CLI entry point. Use `--list`, `-r` (read), `<PID> <file>` (submit).
+- `solutions.py` — `get(pid)` returns a code string for known PIDs.
+- `captcha.py` — OCR solver for the CAPTCHA.
+- `nav.py`, `run.py`, `qread.py`, `editor.py` — lower-level modules.
+- `solver.py` — high-level solve loop.
 
-## Workflow
+## Setup Requirement
 
-### Step 1: List available problems
-```
-python skillrack.py --list -m <module>
-```
-Modules: codetrack, codetutor, dailychallenge, dailytest, codetest
+Chrome/Brave must be running with `--remote-debugging-port=9222` and the user must be logged into SkillRack.
 
-### Step 2: Read a problem
-```
-python skillrack.py <PID> -r -m <module>
-```
-This returns the problem title + description + examples.
-
-### Step 3: Write solution → save to .c/.py/.java file
-Write code based on the problem description and examples.
-- C solutions: use `pidXXX.c` naming
-- Python3 solutions: use `pidXXX.py` naming
-- Always match the expected input/output format from examples
-
-### Step 4: Submit and run
-```
-python skillrack.py <PID> solution.c -m <module> -l C
-python skillrack.py <PID> solution.py -m <module> -l PYTHON3
-```
-The tool handles: navigation, CAPTCHA solving, language selection,
-code pasting (via Ace editor API), clicking Run, and result detection.
-
-### Step 5: Iterate on failure
-If result shows failed tests → debug code → resubmit.
-
-## CAPTCHA Details (IMPORTANT)
-The CAPTCHA is ALWAYS a simple addition: `N+N` where N is 1-3 digits.
-Answer is always ≤ 3 digits, typically 1-2 digits.
-
-The CAPTCHA image contains TWO lines:
-1. User ID (e.g. `113224032018`)
-2. The math expression (e.g. `9+8`)
-
-The tool handles OCR by:
-- Getting the base64 image data directly from `#j_id_75` element
-- Preprocessing: autocontrast → 4x upscale → sharpen → invert
-- OCR with tesseract PSM 6, whitelist `0123456789+*`
-- Taking the LAST OCR line (strips the user ID line)
-- Extracting short (≤3 digit) numbers around `+`
-
-If the tool reports CAPTCHA failed after 3 attempts, the OCR
-might have misread. You can manually compute by looking at the
-raw OCR output in the logs.
-
-## Navigation Timings
-Wait for each step:
-| Action | Wait time |
-|--------|-----------|
-| Page load after navigation | 2-3 seconds |
-| After clicking "Show" (expand section) | 2 seconds |
-| After clicking "View" (expand part) | 2 seconds |
-| After clicking "Solve" | 4 seconds |
-| After clicking "Proceed" | 1.5 seconds |
-| After CAPTCHA filled + Proceed clicked | 3 seconds |
-| After setting language | 0.5 seconds |
-| After pasting code | 1 second |
-| After clicking "Run" | 6+ seconds (up to 15 for results) |
-
-## Error Recovery
-1. **Navigation fails**: If the editor doesn't load, try navigating
-   to the module page first, then re-navigate. Some pages need a
-   fresh load because PrimeFaces session gets stale.
-
-2. **CAPTCHA fails after 3 retries**: Refresh the page (the CAPTCHA
-   changes on reload), then try again. The tool handles 3 retries
-   automatically.
-
-3. **Run fails with compile/runtime error**: The code is wrong.
-   Read the problem again, check input/output format, fix the code,
-   save, and resubmit.
-
-4. **Run succeeds with failed tests**: Read the problem carefully,
-   check edge cases (empty input, single element, max constraints,
-   negative numbers, etc.), fix the code, resubmit.
-
-5. **Page state corruption**: If clicks aren't working, the PrimeFaces
-   UI may be in a bad state. Navigate back to the module home page
-   and re-navigate to the problem fresh.
-
-## Module-Specific Navigation
-
-### CodeTutor (50 Easy/Very-Easy/Average Challenges)
-```
-URL: https://skillrack.com/faces/candidate/codeprogramgroup.xhtml?gt=CODETUTOR
-Steps:
-  1. Load page → wait 2s
-  2. Click Python "Show" button (id: pkglistform:cttbl:2:j_id_41) → wait 2s
-  3. Click "50 EASY CHALLENGES" "Show" button (id: pkglistform:j_id_49:3:j_id_4h) → wait 2s
-  4. Click "View" on each part until the target PID appears (id: cttbl:N:j_id_4u) → wait 2s
-  5. Click "Solve" on the target PID → wait 4s
-  6. CAPTCHA appears → solve → click "Proceed" → wait 3s
-  7. Editor loads
-```
-
-### CodeTrack
-```
-URL: https://skillrack.com/faces/candidate/codeprogram.xhtml?pid=<PID>
-If direct URL fails, navigate to codeprogramgroup.xhtml and find
-the Solve button with matching PID in its parent context.
-```
-
-## Key Selectors
-| Element | Selector |
-|---------|----------|
-| Language dropdown | `#langs_input` |
-| Ace editor div | `#ctracktxtCode` |
-| Hidden textarea | `#txtCode` |
-| CAPTCHA answer input | `#capval` |
-| CAPTCHA image | `#j_id_75` (base64 data) |
-| Proceed button | `#proceedbtn` |
-| Run button | `button:has-text("Run")` |
-| Save button | `button:has-text("Save")` |
-| Solve button | `button:has-text("Solve")` |
-| Python Show | `#pkglistform\\:cttbl\\:2\\:j_id_41` |
-| 50 EASY Show | `#pkglistform\\:j_id_49\\:3\\:j_id_4h` |
-| Part View (N=0..4) | `#cttbl\\:N\\:j_id_4u` |
-
-## Language Values
-| Language | Value |
-|----------|-------|
-| C | `2` |
-| C++ | `3` |
-| C++23 | `9` |
-| Java | `1` |
-| Python3 | `7` |
-
-## Code Pasting (Critical)
-SkillRack has a 30-character diff protection (`cs()` function).
-To bypass this, ALWAYS use the Ace editor's API directly:
-```js
-// This is what skillrack.py does internally:
-const editor = window.ace.edit('ctracktxtCode');
-editor.getSession().setValue(code);
-const ta = document.getElementById('txtCode');
-if (ta) ta.value = code;
-if (ta) ta.dispatchEvent(new Event('change', { bubbles: true }));
-```
-
-## Example: Complete one problem
 ```bash
-# 1. Read problem
-python skillrack.py 2597 -r -m codetutor
-
-# 2. AI writes solution → 2597.py
-
-# 3. Submit
-python skillrack.py 2597 2597.py -m codetutor -l PYTHON3
-
-# 4. Check result, debug if needed, repeat step 2-3
+pip install -r requirements.txt && playwright install chromium
 ```
+
+## Two Problem Types
+
+| Type | URL pattern | Run button | Description |
+|------|-------------|------------|-------------|
+| Course | `tutorprogram.xhtml` | `j_id_a3` | Fill-in-the-blanks. Server has a hidden template with `____` markers. Your paste replaces the `____`. |
+| Easy Challenge | `codeprogram.xhtml` | `j_id_bg` | Full code from scratch. |
+
+## CAPTCHA (Critical)
+
+The CAPTCHA is always `X+Y=?` where X and Y are 1-3 digit numbers.
+
+**DO NOT use `tessedit_char_whitelist`** — it corrupts digit `9` (reads `07+6` instead of `97+6`). Use plain `--psm 6 --oem 3`.
+
+Image pipeline: `convert('L')` → `autocontrast(cutoff=2)` → 4x `LANCZOS` resize → double `SHARPEN` → `invert`. The expression is on the second line of the OCR result; parse with `\d+` regex.
+
+The CAPTCHA solve + Proceed click MUST happen in a single Playwright session. If you disconnect between filling the captcha and clicking Proceed, the session key expires.
+
+## Fill-in-the-Blanks Rule
+
+When the editor contains a template, the server replaced `____` with the editor content. Your paste should contain ONLY the code that replaces `____`. Do NOT include lines that are already in the template. Examples:
+- Template: `if num%5 == 0:\n____` → paste `        pass`
+- Template: `while True:\n    n=int(input())\n    ____` → paste `    if num%9 == 0:\n        break`
+
+## Code Pasting (always use this)
+
+```js
+const ed = window.ace.edit(document.querySelector('.ace_editor').id);
+ed.getSession().setValue(code);
+const ta = document.getElementById('txtCode');
+if (ta) { ta.value = code; ta.dispatchEvent(new Event('change', {bubbles: true})); }
+```
+
+## Running Code
+
+```js
+PrimeFaces.ab({s:"j_id_bg", f:"code", p:"txtCode,langs,customtcpanel,j_id_bg", u:"progresspanel,srmsg"});
+```
+
+Change `j_id_bg` to `j_id_a3` for course problems. The button ID is the Run button's PrimeFaces ID — always find it first from the page if unsure.
+
+## Navigation — Easy Challenges
+
+Starting from `trackshome.xhtml`:
+
+1. Level 1 View → `lev1.xhtml`
+2. Click "View" for "Learn C, Java, Python, SQL..." → `codeprogramgroup.xhtml?gt=CODETUTOR`
+3. Click Python "Show" (`pkglistform:cttbl:2:j_id_41`)
+4. Click "50 EASY CHALLENGES" "Show" (`pkglistform:j_id_49:3:j_id_4h`)
+5. Click "View" on target part (`cttbl:N:j_id_4u`)
+6. Click "Solve" on target problem (`pctbl:N:j_id_5w`)
+7. CAPTCHA appears → solve → Proceed → editor loads → paste → Run
+
+## Navigation — Course Problems
+
+Starting from `tutorprogram.xhtml?gt=CODETRACK`:
+1. Find course chapter in the list
+2. Click chapter → problem list appears
+3. Click problem → CAPTCHA → Proceed → editor loads → paste → Run
+
+## Proceed Next Behavior
+
+After clicking "Proceed Next" on an Easy Challenge, you return to the part's problem list. You must click "Solve" again for the next problem — it does NOT advance directly.
+
+## PIDs
+
+| Range | Course |
+|-------|--------|
+| 2904-2912 | H013 Files |
+| 2912-2921 | H014 Classes & Objects |
+| 2922-2928 | H015 Miscellaneous |
+| ~2570-2600 | EASY CHALLENGES (all parts) |
+
+## Failure Handling
+
+1. **Compile/runtime error**: Your code is wrong. Read the problem again, fix input/output format, resubmit.
+2. **Wrong answer**: Edge cases (negative numbers, float input, multi-line input). Fix and resubmit.
+3. **CAPTCHA fails after 3 attempts**: Reload the page to get a fresh CAPTCHA.
+4. **Page state corruption**: Navigate back to the track home and re-navigate fresh.
