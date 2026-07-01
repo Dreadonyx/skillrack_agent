@@ -1,13 +1,30 @@
 # SkillRack Agent
 
-Automate SkillRack Python programming problem solving.
+Automated problem-solving for SkillRack programming courses using Playwright + Brave/Chrome remote debugging.
 
 ## Status
 
-- **Python3-H013 Files** (2904-2912) ✅
-- **Python3-H014 Classes & Objects** (2912-2921) ✅
-- **Python3-H015 Miscellaneous** (2922-2928) ✅
-- **50 EASY CHALLENGES** (PART001-PART005) ✅
+### Python3 Course ✅
+| Chapter | Status |
+|---------|--------|
+| H013 Files | ✅ |
+| H014 Classes & Objects | ✅ |
+| H015 Miscellaneous | ✅ |
+| 50 EASY CHALLENGES Parts 1-5 | ✅ |
+
+### Data Structures in C Course ✅
+| Chapter | Units | Status |
+|---------|-------|--------|
+| H001 Array Implementation of List | 6 | ✅ |
+| H002 Linked List (SLL, DLL, CDLL) | 9 | ✅ |
+| H003 Array Implementation of Stack | 5 | ✅ |
+| H004 Array Implementation of Queue | 3 | ✅ |
+| H005 Linked List Implementation of Stack | 1 | ✅ |
+| H006 Linked List Implementation of Queue | 1 | ✅ |
+| H007 Binary Search Tree | 6 | ✅ |
+| H008 Heap | 3 | ✅ |
+| H009 Graph (DFS, BFS, Reachable) | 3 | ✅ |
+| H010 Hash Table | 1 | ✅ |
 
 ## Setup
 
@@ -16,15 +33,17 @@ Automate SkillRack Python programming problem solving.
 pip install -r requirements.txt
 playwright install chromium
 
-# Launch Chrome with remote debugging
+# Launch Chrome/Brave with remote debugging
 google-chrome --remote-debugging-port=9222
+# or
+brave-browser --remote-debugging-port=9222
 
 # Log in to SkillRack in the opened browser
 ```
 
-## How to Use
+## Usage
 
-### Find unsolved problems
+### List unsolved problems
 ```bash
 python skillrack.py --list -m codetutor
 python skillrack.py --list -m codetrack
@@ -36,35 +55,31 @@ python skillrack.py <PID> -r -m codetutor
 ```
 
 ### Solve a problem
-Write your solution to a .py file, then:
 ```bash
 python skillrack.py <PID> solution.py -m codetutor -l PYTHON3
+python skillrack.py <PID> solution.c -m codetutor -l C
 ```
-
-The tool handles navigation, CAPTCHA solving, code pasting, running, and result detection.
-
-### If a problem fails
-Read the error output, fix your code, and re-run. The CAPTCHA re-appears each submission.
 
 ## Project Files
 
 | File | Purpose |
 |------|---------|
-| `solutions.py` | PID → solution mapping (all completed PIDs) |
-| `captcha.py` | CAPTCHA solver (PIL + tesseract OCR) |
-| `nav.py` | Browser navigation helpers |
-| `run.py` | Code paste + Run + result detection |
-| `qread.py` | Read problem descriptions |
-| `solver.py` | Main solve loop |
-| `course_solver.py` | Course-specific fill-in-blank solver |
 | `skillrack.py` | CLI entry point |
+| `solutions.py` | PID → solution mapping |
+| `solver.py` | Main solve loop |
+| `course_solver.py` | Course fill-in-blank solver |
+| `run.py` | Code paste + Run + result detection |
+| `nav.py` | Browser navigation helpers |
+| `captcha.py` | CAPTCHA solver (PIL + Tesseract OCR) |
 | `editor.py` | Ace editor interaction |
-| `status.py` | Completion status checker |
+| `qread.py` | Read problem descriptions |
+| `status.py` | Page status checker |
+| `list_unsolved.py` | Unsolved problem lister |
 | `prompt.txt` | Detailed agent instructions |
 
 ## Key Details
 
 - **Run button**: `j_id_a3` (course) / `j_id_bg` (Easy challenges)
-- **CAPTCHA**: simple addition, OCR with `--psm 6 --oem 3` (no whitelist)
-- **Fill-in-blanks**: server template uses `____` placeholders
-- **Navigation**: `trackshome.xhtml` → Level 1 → CODETUTOR → Python → EASY → Part → PID
+- **CAPTCHA**: simple addition, OCR with `--psm 6 --oem 3`
+- **Fill-in-blanks**: server template uses `____` placeholders; only paste missing code
+- **C course**: Problems use Ace editor with global `struct Node` pointers; 1-indexed positions

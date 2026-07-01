@@ -1,3 +1,39 @@
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Playwright
+.playwright-mcp/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
+
+# Temp
 /tmp/
+*.tmp
+
+# Config (local overrides, not template)
+.claude/
