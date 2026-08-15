@@ -76,10 +76,16 @@ def go_level1(page):
     remove_overlays(page)
 
 def is_logged_out(page):
-    return page.evaluate(
-        "() => document.body.innerText.includes('Sign-in') || "
-        "document.body.innerText.includes('Login') || "
-        "document.body.innerText.includes('Sign Up')")
+    return page.evaluate("""() => {
+        const t = document.body.innerText;
+        const has_login_form = document.querySelector('input[type=password]') !== null ||
+                                document.querySelector('#loginForm') !== null ||
+                                document.querySelector('form[action*=\"login\"]') !== null;
+        if (has_login_form) return true;
+        if (/Sign[\\s-]in/i.test(t) && !/Previous Login/i.test(t)) return true;
+        if (/Sign[\\s-]up/i.test(t)) return true;
+        return false;
+    }""")
 
 def recover(page, target_func, max_retries=3):
     """Wrapped navigation: go home → try again on failure."""
@@ -182,6 +188,14 @@ def solve_captcha(page, silent=False):
     return False
 
 # ─── Navigation — Home → Programming → Level 1 → Section → Language → Part ──
+
+def _click_nav(page, text, url_substr):
+    for btn in page.locator(f"a:has-text('{text}'), button:has-text('{text}')").all():
+        if btn.is_visible(timeout=1000):
+            btn.click()
+            sleep(3000)
+            return url_substr in page.url
+    return False
 
 def nav_home_to_programming(page):
     if "trackshome" in page.url:
